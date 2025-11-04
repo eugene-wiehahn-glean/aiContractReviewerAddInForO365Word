@@ -78,6 +78,27 @@ AI Contract Reviewer is a Microsoft Word Add-in that leverages Glean's AI capabi
    
    ![Select Manifest File](docs/images/upload-addin-with-manifestxml-included.png)
 
+4. **Configure the Add-in**
+   
+   After uploading, click the **AI Contract Reviewer** button in the Word ribbon to open the task pane.
+   
+   Expand the **Configuration** section and enter the same credentials you provided to `setup.sh`:
+   
+   ![Configuration Panel](docs/images/ai-contract-reviewing-addin-config-expanded.png)
+   
+   - **Glean API Token**: Your Glean API token
+   - **Glean Instance**: Your instance name (e.g., `your-company`)
+   - **Agent ID**: Your contract review agent ID
+   
+   Click **Save Configuration**. The status should change to "Configured" (green).
+
+5. **Start Analyzing Contracts!**
+   
+   1. Open a contract document in Word
+   2. Click **Analyze Document** in the task pane
+   3. Wait 1-2 minutes for AI analysis
+   4. Review the tracked changes applied to your document
+
 ## 📖 Documentation
 
 - [Architecture Overview](docs/architecture.md)
