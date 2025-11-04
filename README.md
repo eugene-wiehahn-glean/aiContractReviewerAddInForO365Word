@@ -199,8 +199,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - [Open an issue](https://github.com/eugene-wiehahn-glean/aiContractReviewerAddInForO365Word/issues)
-- [Read the docs](docs/)
-- Email: support@glean.com
 
 ## 🙏 Acknowledgments
 
