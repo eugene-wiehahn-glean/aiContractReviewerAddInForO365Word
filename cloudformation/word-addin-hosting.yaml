@@ -9,8 +9,8 @@ Parameters:
   
   CertificateArn:
     Type: String
-    Description: ARN of the ACM certificate for the domain
-    Default: arn:aws:acm:us-east-1:528757814377:certificate/f2dd3447-25e5-4afa-a439-ad53a6089f0f
+    Description: ARN of the ACM certificate for the domain (must be in us-east-1 for CloudFront)
+    Default: ""
   
   DeploymentId:
     Type: String
