@@ -1,5 +1,7 @@
 # AI Contract Reviewer - Microsoft Word Add-in
 
+> **⚠️ Demo Project:** This is a demonstration project. Review security, authentication, testing, and compliance before deploying to production.
+
 > Automated legal document redlining powered by Glean AI
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
