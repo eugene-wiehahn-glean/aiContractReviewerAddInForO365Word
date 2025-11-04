@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Contract Reviewer</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .header-logo {
+            width: 32px;
+            height: 32px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #1a73e8;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #5f6368;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #1a73e8;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #5f6368;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+
+        .input-hint {
+            font-size: 12px;
+            color: #80868b;
+            margin-top: 4px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #1a73e8;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1557b0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(26, 115, 232, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f1f3f4;
+            color: #5f6368;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #e8eaed;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .status-success {
+            background: #e6f4ea;
+            color: #137333;
+            border-left: 4px solid #34a853;
+        }
+
+        .status-error {
+            background: #fce8e6;
+            color: #c5221f;
+            border-left: 4px solid #ea4335;
+        }
+
+        .status-info {
+            background: #e8f0fe;
+            color: #1967d2;
+            border-left: 4px solid #1a73e8;
+        }
+
+        .status-warning {
+            background: #fef7e0;
+            color: #b06000;
+            border-left: 4px solid #f9ab00;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e8eaed;
+            border-top-color: #1a73e8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: #5f6368;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtext {
+            font-size: 12px;
+            color: #80868b;
+        }
+
+        .config-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .config-status.configured {
+            background: #e6f4ea;
+            color: #137333;
+        }
+
+        .config-status.not-configured {
+            background: #fef7e0;
+            color: #b06000;
+        }
+
+        .config-status::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .collapsible-header:hover {
+            opacity: 0.8;
+        }
+
+        .collapse-icon {
+            font-size: 18px;
+            transition: transform 0.3s;
+            color: #5f6368;
+        }
+
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            opacity: 1;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        .action-section {
+            margin-top: 0;
+        }
+
+        .change-badge {
+            display: inline-block;
+            background: #e8f0fe;
+            color: #1967d2;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        .disclaimer {
+            background: #fff4e5;
+            border: 1px solid #ffa726;
+            border-left: 4px solid #f57c00;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: #5f6368;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .disclaimer-icon {
+            font-size: 16px;
+            color: #f57c00;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .disclaimer-text {
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .disclaimer-text strong {
+            color: #e65100;
+            font-weight: 600;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border: 1px solid #e8eaed;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 13px;
+            color: #5f6368;
+            margin-bottom: 16px;
+        }
+
+        .info-box strong {
+            color: #2c3e50;
+        }
+
+        .results-section {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border-left: 3px solid #1a73e8;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .result-item.success {
+            border-left-color: #34a853;
+        }
+
+        .result-item.error {
+            border-left-color: #ea4335;
+        }
+
+        .result-type {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+
+        .result-reason {
+            color: #5f6368;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-title">
+                <img src="assets/icon-32.png" alt="Glean" class="header-logo">
+                <h1>AI Contract Reviewer</h1>
+            </div>
+            <p>AI-powered contract review and redlining</p>
+        </div>
+
+        <div class="disclaimer">
+            <div class="disclaimer-icon">⚠️</div>
+            <div class="disclaimer-text">
+                <strong>Important:</strong> Users must confirm all information in this AI generated analysis and humans must make all final contract change decisions.
+            </div>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+
+        <!-- Action Section (Moved to Top) -->
+        <div class="section action-section">
+            <div class="section-title">Review Document</div>
+            
+            <div class="info-box">
+                <strong>How it works:</strong><br>
+                1. Configure your Glean Agent settings below (one-time setup)<br>
+                2. Click "Analyze Document" for automated review of the open contract<br>
+                3. AI-suggested changes will be applied with track changes enabled<br>
+                4. Review summary of changes in the "Recommended Changes" section below<br>
+                5. Accept/Reject changes with Word track changes feature<br>
+                <strong>Important</strong>: Final approval decision is for the human reviewer. Do not follow AI recommendations without reviewing yourself.
+            </div>
+
+            <button id="analyzeBtn" class="btn btn-primary" disabled>
+                <span>🔍</span>
+                <span>Analyze Document</span>
+            </button>
+        </div>
+
+        <!-- Configuration Section (Collapsible) -->
+        <div class="section">
+            <div class="collapsible-header" id="configHeader">
+                <div class="section-title" style="margin-bottom: 0;">
+                    Configuration
+                    <span id="configStatus" class="config-status not-configured" style="margin-left: 10px; font-size: 11px;">Not Configured</span>
+                </div>
+                <span class="collapse-icon" id="collapseIcon">▼</span>
+            </div>
+            
+            <div class="collapsible-content" id="configContent" style="margin-top: 15px;">
+            
+            <div class="form-group">
+                <label for="apiToken">Glean API Token</label>
+                <input type="password" id="apiToken" placeholder="Enter your Glean API token">
+                <div class="input-hint">Your API token will be stored securely in browser storage</div>
+            </div>
+
+            <div class="form-group">
+                <label for="instance">Glean Instance</label>
+                <input type="text" id="instance" placeholder="e.g., scio-prod">
+                <div class="input-hint">The instance name without domain suffix</div>
+            </div>
+
+            <div class="form-group">
+                <label for="agentId">Agent ID</label>
+                <input type="text" id="agentId" placeholder="Enter your Glean Agent ID">
+                <div class="input-hint">The ID of your legal redlining agent</div>
+            </div>
+
+            <button id="saveConfig" class="btn btn-secondary">Save Configuration</button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="section results-section">
+            <div class="section-title">Recommended Changes</div>
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">Analyzing your document...</div>
+            <div class="loading-subtext">This may take 1-2 minutes</div>
+        </div>
+    </div>
+
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <script src="src/taskpane.js"></script>
+</body>
+</html>

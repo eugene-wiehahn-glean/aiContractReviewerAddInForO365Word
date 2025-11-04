@@ -1,0 +1,513 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Word Add-in Static Website Hosting with S3, CloudFront, and WAF'
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: Domain name for the Word Add-in (e.g., your-domain.com)
+    Default: ""
+  
+  CertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate for the domain
+    Default: arn:aws:acm:us-east-1:528757814377:certificate/f2dd3447-25e5-4afa-a439-ad53a6089f0f
+  
+  DeploymentId:
+    Type: String
+    Description: Deployment identifier for resource naming
+    Default: prod
+
+Resources:
+  # ============================================================================
+  # S3 Bucket for Static Website Hosting
+  # ============================================================================
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'word-addin-hosting-${DeploymentId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub 'word-addin-hosting-${DeploymentId}'
+        - Key: Purpose
+          Value: WordAddinStaticHosting
+
+  # ============================================================================
+  # CloudFront Origin Access Control (OAC) - Latest Best Practice
+  # ============================================================================
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'word-addin-oac-${DeploymentId}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ============================================================================
+  # S3 Bucket Policy - Allow CloudFront OAC Access
+  # ============================================================================
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # ============================================================================
+  # WAF Web ACL with AWS Managed Rules
+  # ============================================================================
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub 'word-addin-waf-${DeploymentId}'
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      Rules:
+        # AWS Managed Rules - Core Rule Set
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesCommonRuleSetMetric
+        
+        # AWS Managed Rules - Known Bad Inputs
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesKnownBadInputsRuleSetMetric
+        
+        # Rate Limiting - 2000 requests per 5 minutes per IP
+        - Name: RateLimitRule
+          Priority: 3
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: 2000
+              AggregateKeyType: IP
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitRuleMetric
+      
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub 'word-addin-waf-${DeploymentId}'
+      Tags:
+        - Key: Name
+          Value: !Sub 'word-addin-waf-${DeploymentId}'
+
+  # ============================================================================
+  # CloudFront Distribution
+  # ============================================================================
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'Glean Word Add-in - ${DeploymentId}'
+        Aliases:
+          - !Ref DomainName
+        DefaultRootObject: taskpane.html
+        
+        # Origin - S3 Bucket with OAC
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            OriginAccessControlId: !Ref CloudFrontOAC
+            S3OriginConfig: {}
+        
+        # Default Cache Behavior
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf  # CORS-S3Origin
+          ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd  # CORS-with-preflight-and-SecurityHeadersPolicy
+        
+        # Custom Error Responses - serve taskpane.html for 404s
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /taskpane.html
+            ErrorCachingMinTTL: 10
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /taskpane.html
+            ErrorCachingMinTTL: 10
+        
+        # HTTPS Configuration
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        
+        # WAF Integration
+        WebACLId: !GetAtt WebACL.Arn
+        
+        # HTTP/2 and HTTP/3 Support
+        HttpVersion: http2and3
+        
+        # Price Class
+        PriceClass: PriceClass_100  # US, Canada, Europe
+        
+      Tags:
+        - Key: Name
+          Value: !Sub 'word-addin-cdn-${DeploymentId}'
+
+  # ============================================================================
+  # Lambda Execution Role
+  # ============================================================================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'word-addin-lambda-role-${DeploymentId}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: Name
+          Value: !Sub 'word-addin-lambda-role-${DeploymentId}'
+
+  # ============================================================================
+  # Lambda Function - Glean API Proxy
+  # ============================================================================
+  GleanProxyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'word-addin-glean-proxy-${DeploymentId}'
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          import json
+          import urllib3
+          import os
+          
+          http = urllib3.PoolManager()
+          
+          def lambda_handler(event, context):
+              # Parse request body
+              try:
+                  if isinstance(event.get('body'), str):
+                      body = json.loads(event['body'])
+                  else:
+                      body = event.get('body', {})
+              except json.JSONDecodeError as e:
+                  return {
+                      'statusCode': 400,
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*',
+                          'Access-Control-Allow-Headers': 'Content-Type',
+                          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                          'Content-Type': 'application/json'
+                      },
+                      'body': json.dumps({'error': f'Invalid JSON: {str(e)}'})
+                  }
+              
+              # Handle OPTIONS preflight request
+              if event.get('httpMethod') == 'OPTIONS':
+                  return {
+                      'statusCode': 200,
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*',
+                          'Access-Control-Allow-Headers': 'Content-Type',
+                          'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                      },
+                      'body': ''
+                  }
+              
+              # Extract parameters
+              api_token = body.get('apiToken')
+              instance = body.get('instance')
+              agent_id = body.get('agentId')
+              document_text = body.get('documentText')
+              msa_link = body.get('msaLink', 'https://docs.google.com/document/d/1jaLeyhnrNndtv3fWbm10kj01PvwKB-qStt6dRETuBA4/edit?tab=t.0')
+              
+              # Validate required parameters
+              if not all([api_token, instance, agent_id, document_text]):
+                  return {
+                      'statusCode': 400,
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*',
+                          'Content-Type': 'application/json'
+                      },
+                      'body': json.dumps({'error': 'Missing required parameters: apiToken, instance, agentId, documentText'})
+                  }
+              
+              # Build Glean API request
+              glean_url = f'https://{instance}-be.glean.com/rest/api/v1/agents/runs/wait'
+              glean_payload = {
+                  'agent_id': agent_id,  # Must be snake_case, not camelCase!
+                  'input': {
+                      'Customer Contract Text (Provided by Word Add-In)': document_text,
+                      'Link to our standard MSA': msa_link
+                  }
+              }
+              
+              # Call Glean API
+              try:
+                  response = http.request(
+                      'POST',
+                      glean_url,
+                      body=json.dumps(glean_payload).encode('utf-8'),
+                      headers={
+                          'Content-Type': 'application/json',
+                          'Authorization': f'Bearer {api_token}'
+                      },
+                      timeout=300.0
+                  )
+                  
+                  # Log response for debugging
+                  print(f'Glean API response status: {response.status}')
+                  print(f'Glean API response body (first 500 chars): {response.data.decode("utf-8")[:500]}')
+                  
+                  # Check if response is successful
+                  if response.status >= 400:
+                      error_body = response.data.decode('utf-8')
+                      print(f'Glean API error: {error_body}')
+                      return {
+                          'statusCode': response.status,
+                          'headers': {
+                              'Access-Control-Allow-Origin': '*',
+                              'Content-Type': 'application/json'
+                          },
+                          'body': json.dumps({
+                              'error': f'Glean API returned {response.status}',
+                              'details': error_body[:1000]
+                          })
+                      }
+                  
+                  # Parse successful response
+                  response_data = json.loads(response.data.decode('utf-8'))
+                  
+                  return {
+                      'statusCode': response.status,
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*',
+                          'Access-Control-Allow-Headers': 'Content-Type',
+                          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                          'Content-Type': 'application/json'
+                      },
+                      'body': json.dumps(response_data)
+                  }
+                  
+              except Exception as e:
+                  print(f'Error calling Glean API: {str(e)}')
+                  import traceback
+                  print(f'Traceback: {traceback.format_exc()}')
+                  return {
+                      'statusCode': 500,
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*',
+                          'Content-Type': 'application/json'
+                      },
+                      'body': json.dumps({'error': f'Error calling Glean API: {str(e)}'})
+                  }
+      Tags:
+        - Key: Name
+          Value: !Sub 'word-addin-glean-proxy-${DeploymentId}'
+
+  # ============================================================================
+  # API Gateway REST API
+  # NOTE: As of June 2024, API Gateway timeout can be increased beyond 29 seconds
+  # for Regional and Private REST APIs via Service Quota increase request.
+  # This template sets TimeoutInMillis to 180000 (180 seconds / 3 minutes).
+  # The Lambda timeout is set to 300 seconds to provide buffer.
+  # ============================================================================
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'word-addin-api-${DeploymentId}'
+      Description: API Gateway for Word Add-in Glean proxy
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Tags:
+        - Key: Name
+          Value: !Sub 'word-addin-api-${DeploymentId}'
+
+  ApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: analyze
+
+  ApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ApiGatewayResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GleanProxyFunction.Arn}/invocations'
+        TimeoutInMillis: 180000  # 180 seconds (3 minutes) - approved quota limit
+
+  ApiGatewayOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ApiGatewayResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ApiGatewayMethod
+      - ApiGatewayOptionsMethod
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: prod
+
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GleanProxyFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*'
+
+  # Gateway Response for CORS on 4XX errors
+  ApiGateway4xxResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResponseType: DEFAULT_4XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+
+  # Gateway Response for CORS on 5XX errors (including timeouts)
+  ApiGateway5xxResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResponseType: DEFAULT_5XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+
+Outputs:
+  WebsiteBucketName:
+    Description: Name of the S3 bucket for website hosting
+    Value: !Ref WebsiteBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteBucket'
+  
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionId'
+  
+  CloudFrontDomainName:
+    Description: CloudFront Distribution Domain Name (use this for Route53 CNAME)
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionDomain'
+  
+  WebsiteURL:
+    Description: Website URL
+    Value: !Sub 'https://${DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-WebsiteURL'
+  
+  WAFWebACLArn:
+    Description: WAF Web ACL ARN
+    Value: !GetAtt WebACL.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WAFArn'
+  
+  ApiGatewayUrl:
+    Description: API Gateway URL for Glean proxy
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/analyze'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+  
+  DeploymentInstructions:
+    Description: Next steps for deployment
+    Value: !Sub |
+      1. Deploy this stack: aws cloudformation create-stack --stack-name word-addin-hosting --template-body file://word-addin-hosting.yaml --capabilities CAPABILITY_NAMED_IAM
+      2. Upload files to S3: aws s3 sync ../word-addin s3://${WebsiteBucket}/ --exclude "*.md" --exclude "*.sh" --exclude "node_modules/*" --exclude "package*.json" --exclude "certs/*" --exclude "manifest*.xml"
+      3. Create Route53 CNAME record: ${DomainName} -> ${CloudFrontDistribution.DomainName}
+      4. Update manifest.xml to use https://${DomainName}/taskpane.html
+      5. Invalidate CloudFront cache: aws cloudfront create-invalidation --distribution-id ${CloudFrontDistribution} --paths "/*"

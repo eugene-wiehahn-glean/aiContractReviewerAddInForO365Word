@@ -1,0 +1,43 @@
+{
+  "name": "ai-contract-reviewer-word-addin",
+  "version": "1.0.0",
+  "description": "Microsoft Word Add-in for AI-powered contract review using Glean",
+  "main": "test-api.ts",
+  "type": "module",
+  "scripts": {
+    "test-api": "npx tsx test-api.ts",
+    "setup": "./setup.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eugene-wiehahn-glean/aiContractReviewerAddInForO365Word.git"
+  },
+  "keywords": [
+    "word-addin",
+    "microsoft-word",
+    "office-addin",
+    "legal-tech",
+    "contract-review",
+    "contract-analysis",
+    "ai",
+    "glean",
+    "document-automation",
+    "legal-automation",
+    "redlining",
+    "tracked-changes"
+  ],
+  "author": "Glean Technologies Inc",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eugene-wiehahn-glean/aiContractReviewerAddInForO365Word/issues"
+  },
+  "homepage": "https://github.com/eugene-wiehahn-glean/aiContractReviewerAddInForO365Word#readme",
+  "dependencies": {
+    "@gleanwork/api-client": "^0.13.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

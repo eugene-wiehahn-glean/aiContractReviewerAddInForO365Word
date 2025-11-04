@@ -1,0 +1,25 @@
+{
+  "name": "ai-contract-reviewer-word-addin-ui",
+  "version": "1.0.0",
+  "description": "Word Add-in UI for AI-powered contract review using Glean",
+  "main": "taskpane.html",
+  "scripts": {
+    "start": "office-addin-debugging start manifest.xml desktop",
+    "stop": "office-addin-debugging stop manifest.xml"
+  },
+  "keywords": [
+    "office-add-in",
+    "word-addin",
+    "microsoft-word",
+    "glean",
+    "legal-tech",
+    "contract-review",
+    "ai"
+  ],
+  "author": "Glean Technologies Inc",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "office-addin-debugging": "^5.0.0"
+  }
+}

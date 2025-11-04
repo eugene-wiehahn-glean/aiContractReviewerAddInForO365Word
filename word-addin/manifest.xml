@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+  
+  <!-- Unique ID - DO NOT CHANGE after deployment -->
+  <Id>a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d</Id>
+  
+  <!-- Version number - increment when updating -->
+  <Version>1.0.0.0</Version>
+  
+  <!-- Provider information -->
+  <ProviderName>Glean</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  
+  <!-- Display information -->
+  <DisplayName DefaultValue="AI Contract Reviewer"/>
+  <Description DefaultValue="AI-powered contract review and redlining with Glean"/>
+  
+  <!-- Icons - REQUIRED for proper registration -->
+  <IconUrl DefaultValue="https://wordredlining.gleandemo.com/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://wordredlining.gleandemo.com/assets/icon-64.png"/>
+  
+  <!-- Support URL -->
+  <SupportUrl DefaultValue="https://www.glean.com/support"/>
+  
+  <!-- Allowed domains for API calls -->
+  <AppDomains>
+    <AppDomain>https://scio-prod-be.glean.com</AppDomain>
+    <AppDomain>https://o8d9szre4m.execute-api.us-east-1.amazonaws.com</AppDomain>
+  </AppDomains>
+  
+  <!-- Supported Office applications -->
+  <Hosts>
+    <Host Name="Document"/>
+  </Hosts>
+  
+  <!-- Default taskpane location -->
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://wordredlining.gleandemo.com/taskpane.html"/>
+  </DefaultSettings>
+  
+  <!-- Required permissions -->
+  <Permissions>ReadWriteDocument</Permissions>
+  
+  <!-- Version Overrides for modern Office (Office 2016+, Office Online) -->
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <!-- Getting Started experience -->
+          <GetStarted>
+            <Title resid="GetStarted.Title"/>
+            <Description resid="GetStarted.Description"/>
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+          </GetStarted>
+          
+          <!-- Function file for add-in commands -->
+          <FunctionFile resid="Commands.Url"/>
+          
+          <!-- Ribbon button configuration -->
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="CommandsGroup">
+                <Label resid="CommandsGroup.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16"/>
+                  <bt:Image size="32" resid="Icon.32x32"/>
+                  <bt:Image size="80" resid="Icon.80x80"/>
+                </Icon>
+                
+                <!-- Main taskpane button -->
+                <Control xsi:type="Button" id="TaskpaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    
+    <!-- Resources - REQUIRED for VersionOverrides -->
+    <Resources>
+      <!-- Icon images -->
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://wordredlining.gleandemo.com/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://wordredlining.gleandemo.com/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://wordredlining.gleandemo.com/assets/icon-80.png"/>
+      </bt:Images>
+      
+      <!-- URLs -->
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://www.glean.com"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://wordredlining.gleandemo.com/commands.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://wordredlining.gleandemo.com/taskpane.html"/>
+      </bt:Urls>
+      
+      <!-- Short strings (max 125 characters) -->
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Get started with AI Contract Reviewer"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="Glean"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="AI Contract Reviewer"/>
+      </bt:ShortStrings>
+      
+      <!-- Long strings (max 250 characters) -->
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Click to open the AI Contract Reviewer task pane"/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open AI Contract Reviewer to review and redline contracts using AI"/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
